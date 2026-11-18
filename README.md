@@ -46,6 +46,6 @@ The test suite runs against an in-memory SQLite override with stubbed embeddings
 
 ## Documentation
 
-[Architecture](docs/architecture.md) · [API](docs/api.md) · [Database](docs/database.md) · [Engineering decisions](docs/engineering-decisions.md) · [Security](SECURITY.md) · [Deployment](DEPLOYMENT.md)
+[Architecture](docs/architecture.md) · [API](docs/api.md) · [Database](docs/database.md) · [Engineering decisions](docs/engineering-decisions.md) · [Retrieval evaluation](EVAL.md) · [Security](SECURITY.md) · [Deployment](DEPLOYMENT.md)
 
 MIT License.
