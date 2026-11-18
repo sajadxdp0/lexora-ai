@@ -63,6 +63,7 @@ CASES = [
 
 
 def _tokens(s: str) -> set[str]:
+    """Return lowercase content words, dropping common English stopwords."""
     return set(re.findall(r"[a-z0-9]+", s.lower())) - {
         "the",
         "a",
@@ -84,10 +85,12 @@ def _tokens(s: str) -> set[str]:
 
 
 def score_chunk(question: str, chunk: str) -> int:
+    """Score a chunk by the number of question terms it contains."""
     return len(_tokens(question) & _tokens(chunk))
 
 
 def main() -> None:
+    """Run the keyword-recall probe and exit non-zero on any missed case."""
     ap = argparse.ArgumentParser()
     ap.add_argument("--top-k", type=int, default=3)
     args = ap.parse_args()

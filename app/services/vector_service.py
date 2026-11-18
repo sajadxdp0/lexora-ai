@@ -46,17 +46,19 @@ class VectorStore:
         self.metadata: list[dict] = []
         self._load_or_create_index()
 
-    def _get_index_path(self) -> str:
-        """Get path for FAISS index file."""
+    def _base_path(self) -> Path:
+        """Return (and ensure) the per-user storage directory."""
         base_path = Path(settings.faiss_index_path) / self.user_id
         base_path.mkdir(parents=True, exist_ok=True)
-        return str(base_path / "index.faiss")
+        return base_path
+
+    def _get_index_path(self) -> str:
+        """Get path for FAISS index file."""
+        return str(self._base_path() / "index.faiss")
 
     def _get_metadata_path(self) -> str:
         """Get path for metadata JSON file."""
-        base_path = Path(settings.faiss_index_path) / self.user_id
-        base_path.mkdir(parents=True, exist_ok=True)
-        return str(base_path / "metadata.json")
+        return str(self._base_path() / "metadata.json")
 
     def _load_or_create_index(self) -> None:
         """Load existing index or create new one."""

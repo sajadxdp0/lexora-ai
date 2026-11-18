@@ -19,6 +19,7 @@ _buckets: dict[str, list[float]] = defaultdict(list)
 
 
 def _client_key(request: Request) -> str:
+    """Resolve the client identifier from proxy headers or the socket."""
     forwarded = request.headers.get("X-Forwarded-For")
     if forwarded:
         return forwarded.split(",")[0].strip()
@@ -26,6 +27,7 @@ def _client_key(request: Request) -> str:
 
 
 def is_allowed(key: str, limit_per_minute: int, now: float | None = None) -> bool:
+    """Record a hit for a fixed 60-second window and report whether it fits."""
     now = time.time() if now is None else now
     window_start = now - 60.0
     hits = [t for t in _buckets[key] if t > window_start]

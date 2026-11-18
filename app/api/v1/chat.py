@@ -27,10 +27,8 @@ async def send_message(
     request: ChatRequest,
     db: DBSession,
     current_user: CurrentUser,
-) -> dict:
-    """
-    Send a message and get a response (non-streaming).
-    """
+) -> ChatResponse:
+    """Send a message and get a response (non-streaming)."""
     from app.services.chat_service import get_chat_service
 
     chat_service = get_chat_service(db, current_user)
@@ -64,6 +62,7 @@ async def send_message_stream(
     chat_service = get_chat_service(db, current_user)
 
     async def generate():
+        """Yield SSE frames for each streamed chunk and a final done event."""
         conversation_id = None
 
         async for user_msg, chunk in chat_service.create_message_stream(

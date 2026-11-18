@@ -11,7 +11,7 @@ from app.config import get_settings
 from app.core.exceptions import NotFoundError, ValidationError
 from app.core.logging import get_logger
 from app.schemas.database import Document, User
-from app.services.embedding_service import get_embedding_service
+from app.services.embedding_service import EmbeddingService, get_embedding_service
 from app.services.vector_service import get_vector_store
 from app.utils.document_parser import DocumentParser, save_uploaded_file
 from app.utils.text_chunker import TextChunker
@@ -41,7 +41,7 @@ class DocumentService:
         db: AsyncSession,
         user: User,
         chunker: Optional[TextChunker] = None,
-        embedding_service=None,
+        embedding_service: Optional[EmbeddingService] = None,
     ):
         """
         Initialize document service.

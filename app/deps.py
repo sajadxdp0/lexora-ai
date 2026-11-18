@@ -3,16 +3,12 @@
 from typing import Annotated, Optional
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import get_settings
-from app.core.security import verify_token_type
+from app.core.security import oauth2_scheme, verify_token_type
+from app.core.token_blacklist import is_token_blacklisted
 from app.schemas.database import User, get_db
-
-settings = get_settings()
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 
 async def get_current_user(
@@ -25,22 +21,13 @@ async def get_current_user(
     This dependency validates the access token and retrieves
     the user from the database.
     """
-    from sqlalchemy import select
-
-    from app.schemas.database import User
-
     payload = verify_token_type(token, "access")
-    token_id = payload.get("jti")
-    if token_id:
-        from app.services.cache_service import get_cache_service
-
-        cache_service = await get_cache_service()
-        if await cache_service.exists(f"token_blacklist:{token_id}"):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token has been revoked",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+    if await is_token_blacklisted(payload.get("jti")):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     user_id: str = payload.get("sub")
     if user_id is None:
         raise HTTPException(

@@ -51,6 +51,11 @@ class CacheService:
             self.redis = None
             logger.info("redis_disconnected")
 
+    async def _ensure_connected(self) -> None:
+        """Lazily open the connection on first use."""
+        if not self.redis:
+            await self.connect()
+
     async def get(self, key: str) -> Optional[dict]:
         """
         Get value from cache.
@@ -61,8 +66,7 @@ class CacheService:
         Returns:
             Cached value or None
         """
-        if not self.redis:
-            await self.connect()
+        await self._ensure_connected()
 
         try:
             value = await self.redis.get(key)
@@ -90,8 +94,7 @@ class CacheService:
         Returns:
             True if successful
         """
-        if not self.redis:
-            await self.connect()
+        await self._ensure_connected()
 
         try:
             serialized = json.dumps(value)
@@ -114,8 +117,7 @@ class CacheService:
         Returns:
             True if successful
         """
-        if not self.redis:
-            await self.connect()
+        await self._ensure_connected()
 
         try:
             await self.redis.delete(key)
@@ -126,8 +128,7 @@ class CacheService:
 
     async def exists(self, key: str) -> bool:
         """Check if key exists in cache."""
-        if not self.redis:
-            await self.connect()
+        await self._ensure_connected()
 
         try:
             return await self.redis.exists(key) > 0
@@ -137,8 +138,7 @@ class CacheService:
 
     async def increment(self, key: str, amount: int = 1) -> Optional[int]:
         """Increment a counter in cache."""
-        if not self.redis:
-            await self.connect()
+        await self._ensure_connected()
 
         try:
             return await self.redis.incrby(key, amount)
@@ -148,8 +148,7 @@ class CacheService:
 
     async def expire(self, key: str, seconds: int) -> bool:
         """Set TTL on a key."""
-        if not self.redis:
-            await self.connect()
+        await self._ensure_connected()
 
         try:
             return await self.redis.expire(key, seconds)
@@ -159,8 +158,7 @@ class CacheService:
 
     async def flush_pattern(self, pattern: str) -> int:
         """Delete all keys matching a pattern."""
-        if not self.redis:
-            await self.connect()
+        await self._ensure_connected()
 
         try:
             keys = []

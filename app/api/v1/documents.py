@@ -26,7 +26,7 @@ async def upload_document(
     db: DBSession,
     current_user: CurrentUser,
     file: UploadFile = File(...),
-) -> Document:
+) -> DocumentUploadResponse:
     """
     Upload and process a document.
 
@@ -90,7 +90,7 @@ async def get_document_status(
     document_id: str,
     db: DBSession,
     current_user: CurrentUser,
-) -> Document:
+) -> DocumentStatus:
     """Get document processing status."""
     from app.services.document_service import get_document_service
 

@@ -1,6 +1,8 @@
 """Document parsing utilities for extracting text from various file formats."""
 
 import os
+import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -82,10 +84,8 @@ class DocumentParser:
             text_parts = []
             with open(file_path, "rb") as f:
                 reader = PdfReader(f)
-                num_pages = len(reader.pages)
 
-                for page_num in range(num_pages):
-                    page = reader.pages[page_num]
+                for page in reader.pages:
                     text = page.extract_text()
                     if text:
                         text_parts.append(text)
@@ -172,9 +172,6 @@ async def save_uploaded_file(
         Path to saved file
     """
     os.makedirs(upload_dir, exist_ok=True)
-
-    import uuid
-    from datetime import datetime
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     unique_id = str(uuid.uuid4())[:8]

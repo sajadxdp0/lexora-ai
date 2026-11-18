@@ -12,6 +12,42 @@ from app.schemas.database import Conversation, Message, User
 
 logger = get_logger(__name__)
 
+RETRIEVAL_TOP_K = 4
+RETRIEVAL_CACHE_TTL_SECONDS = 3600
+
+
+def _title_from_content(content: str) -> str:
+    """Derive a conversation title from the opening message."""
+    return content[:50] + "..." if len(content) > 50 else content
+
+
+def _new_user_message(conversation: Conversation, user_id: str, content: str) -> Message:
+    """Build the persisted user-message row for a chat turn."""
+    return Message(
+        id=str(uuid4()),
+        conversation_id=conversation.id,
+        user_id=user_id,
+        role="user",
+        content=content,
+    )
+
+
+def _new_assistant_message(
+    conversation: Conversation,
+    user_id: str,
+    content: str,
+    sources: list[dict[str, Any]],
+) -> Message:
+    """Build the persisted assistant-message row for a chat turn."""
+    return Message(
+        id=str(uuid4()),
+        conversation_id=conversation.id,
+        user_id=user_id,
+        role="assistant",
+        content=content,
+        sources=sources,
+    )
+
 
 class ChatService:
     """
@@ -67,17 +103,11 @@ class ChatService:
 
         conversation = await self._get_or_create_conversation(conversation_id)
 
-        user_message = Message(
-            id=str(uuid4()),
-            conversation_id=conversation.id,
-            user_id=self.user.id,
-            role="user",
-            content=content,
-        )
+        user_message = _new_user_message(conversation, self.user.id, content)
         self.db.add(user_message)
 
         if not conversation.title:
-            conversation.title = content[:50] + "..." if len(content) > 50 else content
+            conversation.title = _title_from_content(content)
 
         await self.db.commit()
         await self.db.refresh(conversation)
@@ -98,14 +128,7 @@ class ChatService:
             chat_history=chat_history,
         )
 
-        assistant_message = Message(
-            id=str(uuid4()),
-            conversation_id=conversation.id,
-            user_id=self.user.id,
-            role="assistant",
-            content=response,
-            sources=sources,
-        )
+        assistant_message = _new_assistant_message(conversation, self.user.id, response, sources)
         self.db.add(assistant_message)
 
         await self.db.commit()
@@ -145,19 +168,13 @@ class ChatService:
 
         conversation = await self._get_or_create_conversation(conversation_id)
 
-        user_message = Message(
-            id=str(uuid4()),
-            conversation_id=conversation.id,
-            user_id=self.user.id,
-            role="user",
-            content=content,
-        )
+        user_message = _new_user_message(conversation, self.user.id, content)
         self.db.add(user_message)
         await self.db.commit()
         await self.db.refresh(user_message)
 
         if not conversation.title:
-            conversation.title = content[:50] + "..." if len(content) > 50 else content
+            conversation.title = _title_from_content(content)
 
         context, sources = await self._retrieve_context(
             content,
@@ -179,13 +196,8 @@ class ChatService:
             full_response += chunk
             yield user_message, chunk
 
-        assistant_message = Message(
-            id=str(uuid4()),
-            conversation_id=conversation.id,
-            user_id=self.user.id,
-            role="assistant",
-            content=full_response,
-            sources=sources,
+        assistant_message = _new_assistant_message(
+            conversation, self.user.id, full_response, sources
         )
         self.db.add(assistant_message)
         await self.db.commit()
@@ -221,14 +233,14 @@ class ChatService:
 
         context, sources = retrieval_service.get_context(
             query,
-            k=4,
+            k=RETRIEVAL_TOP_K,
             document_ids=document_ids,
         )
 
         await cache_service.set(
             cache_key,
             {"context": context, "sources": sources},
-            expire=3600,
+            expire=RETRIEVAL_CACHE_TTL_SECONDS,
         )
 
         return context, sources
@@ -239,16 +251,7 @@ class ChatService:
     ) -> Conversation:
         """Get existing or create new conversation."""
         if conversation_id:
-            result = await self.db.execute(
-                select(Conversation).where(
-                    Conversation.id == conversation_id,
-                    Conversation.user_id == self.user.id,
-                )
-            )
-            conversation = result.scalar_one_or_none()
-            if not conversation:
-                raise NotFoundError("Conversation not found")
-            return conversation
+            return await self.get_conversation(conversation_id)
 
         conversation = Conversation(
             id=str(uuid4()),

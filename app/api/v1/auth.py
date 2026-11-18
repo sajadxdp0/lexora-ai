@@ -14,6 +14,7 @@ from app.core.security import (
     verify_password,
     verify_token_type,
 )
+from app.core.token_blacklist import blacklist_token, is_token_blacklisted
 from app.deps import CurrentUser, DBSession, oauth2_scheme
 from app.models.user import Token, UserCreate, UserResponse
 from app.schemas.database import User
@@ -112,13 +113,8 @@ async def refresh_token(
     """
     payload = verify_token_type(refresh_token, "refresh")
     token_id = payload.get("jti")
-    cache_service = None
-    if token_id:
-        from app.services.cache_service import get_cache_service
-
-        cache_service = await get_cache_service()
-        if await cache_service.exists(f"token_blacklist:{token_id}"):
-            raise AuthenticationError("Refresh token has been revoked")
+    if await is_token_blacklisted(token_id):
+        raise AuthenticationError("Refresh token has been revoked")
 
     user_id = payload.get("sub")
 
@@ -131,10 +127,7 @@ async def refresh_token(
     access_token = create_access_token(user.id)
     new_refresh_token = create_refresh_token(user.id)
 
-    if token_id and cache_service is not None:
-        ttl = get_token_ttl_seconds(payload)
-        if ttl > 0:
-            await cache_service.set(f"token_blacklist:{token_id}", {"revoked": True}, expire=ttl)
+    await blacklist_token(token_id, get_token_ttl_seconds(payload))
 
     return {
         "access_token": access_token,
@@ -150,18 +143,11 @@ async def logout(
 ) -> dict:
     """Logout and revoke the current access token until it naturally expires."""
     payload = verify_token_type(token, "access")
-    token_id = payload.get("jti")
-    ttl = get_token_ttl_seconds(payload)
-
-    if token_id and ttl > 0:
-        from app.services.cache_service import get_cache_service
-
-        cache_service = await get_cache_service()
-        await cache_service.set(
-            f"token_blacklist:{token_id}",
-            {"revoked": True, "user_id": current_user.id},
-            expire=ttl,
-        )
+    await blacklist_token(
+        payload.get("jti"),
+        get_token_ttl_seconds(payload),
+        user_id=current_user.id,
+    )
 
     logger.info("user_logged_out", user_id=current_user.id)
     return {"message": "Successfully logged out"}

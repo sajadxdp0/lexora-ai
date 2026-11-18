@@ -12,6 +12,14 @@ from app.core.logging import get_logger
 settings = get_settings()
 logger = get_logger(__name__)
 
+SYSTEM_PROMPT = (
+    "You are a helpful AI assistant that answers questions "
+    "based on the provided context from documents. "
+    "Always base your answers on the provided context. "
+    "If the context doesn't contain enough information to answer "
+    "the question, say so clearly."
+)
+
 
 class LLMService:
     """
@@ -82,18 +90,7 @@ class LLMService:
 
         logger.info("llm_generation_started", query=query[:100])
 
-        messages = [
-            SystemMessage(
-                content="You are a helpful AI assistant that answers questions "
-                "based on the provided context from documents. "
-                "Always base your answers on the provided context. "
-                "If the context doesn't contain enough information to answer "
-                "the question, say so clearly."
-            ),
-            HumanMessage(content=prompt),
-        ]
-
-        response = self.llm.invoke(messages)
+        response = self.llm.invoke(self._build_messages(prompt))
 
         logger.info("llm_generation_completed", query=query[:100])
 
@@ -120,20 +117,14 @@ class LLMService:
 
         logger.info("llm_stream_started", query=query[:100])
 
-        messages = [
-            SystemMessage(
-                content="You are a helpful AI assistant that answers questions "
-                "based on the provided context from documents. "
-                "Always base your answers on the provided context. "
-                "If the context doesn't contain enough information to answer "
-                "the question, say so clearly."
-            ),
-            HumanMessage(content=prompt),
-        ]
-
-        async for chunk in self.llm.astream(messages):
+        async for chunk in self.llm.astream(self._build_messages(prompt)):
             if chunk.content:
                 yield chunk.content
+
+    @staticmethod
+    def _build_messages(prompt: str) -> list[SystemMessage | HumanMessage]:
+        """Wrap a rendered prompt in the shared system/human message pair."""
+        return [SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=prompt)]
 
     def _build_prompt(
         self,

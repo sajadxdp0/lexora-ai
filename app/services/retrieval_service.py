@@ -2,12 +2,10 @@
 
 from typing import Any
 
-from app.config import get_settings
 from app.core.logging import get_logger
-from app.services.embedding_service import get_embedding_service
-from app.services.vector_service import get_vector_store
+from app.services.embedding_service import EmbeddingService, get_embedding_service
+from app.services.vector_service import VectorStore, get_vector_store
 
-settings = get_settings()
 logger = get_logger(__name__)
 
 
@@ -31,8 +29,8 @@ class RetrievalService:
     def __init__(
         self,
         user_id: str,
-        embedding_service=None,
-        vector_store=None,
+        embedding_service: EmbeddingService | None = None,
+        vector_store: VectorStore | None = None,
     ):
         """
         Initialize retrieval service.
@@ -97,17 +95,12 @@ class RetrievalService:
         if not results:
             return []
 
-        unique_by_doc = {}
+        # Keep the first (best-ranked) chunk per document, then sort by score.
+        unique_by_doc: dict[str, dict[str, Any]] = {}
         for result in results:
-            doc_id = result["document_id"]
-            if doc_id not in unique_by_doc:
-                unique_by_doc[doc_id] = result
+            unique_by_doc.setdefault(result["document_id"], result)
 
-        filtered = list(unique_by_doc.values())
-
-        filtered.sort(key=lambda x: x["score"])
-
-        return filtered[:k]
+        return sorted(unique_by_doc.values(), key=lambda item: item["score"])[:k]
 
     def get_context(
         self,
@@ -131,13 +124,16 @@ class RetrievalService:
         if not results:
             return "", []
 
-        context_parts = []
-        sources = []
+        context_parts: list[str] = []
+        sources: list[dict[str, Any]] = []
+        seen_documents: set[str] = set()
 
         for i, result in enumerate(results):
             context_parts.append(f"[Document {i + 1}]\n{result['text'][:1000]}")
 
-            if result["document_id"] not in [s.get("document_id") for s in sources]:
+            doc_id = result["document_id"]
+            if doc_id not in seen_documents:
+                seen_documents.add(doc_id)
                 sources.append(
                     {
                         "document_id": result["document_id"],

@@ -77,7 +77,7 @@ app.add_middleware(
 
 
 @app.exception_handler(LexoraException)
-async def lexora_exception_handler(request: Request, exc: LexoraException):
+async def lexora_exception_handler(request: Request, exc: LexoraException) -> JSONResponse:
     """Handle custom Lexora exceptions."""
     return JSONResponse(
         status_code=exc.status_code,
@@ -132,7 +132,6 @@ async def health_check():
 async def readiness_check():
     """Readiness check endpoint."""
     from app.schemas.database import engine
-    from app.services.cache_service import cache_service
 
     checks = {"database": "disconnected", "cache": "disconnected"}
 

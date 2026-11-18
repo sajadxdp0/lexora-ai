@@ -66,10 +66,8 @@ class TextChunker:
         return [chunk.strip() for chunk in chunks if chunk.strip()]
 
     def _normalize_text(self, text: str) -> str:
-        """Normalize text by removing excessive whitespace."""
-        text = re.sub(r"\s+", " ", text)
-        text = re.sub(r"\n\s*\n", "\n\n", text)
-        return text.strip()
+        """Normalize text by collapsing whitespace runs to single spaces."""
+        return re.sub(r"\s+", " ", text).strip()
 
     def _split_text(self, text: str, chunks: list[str]) -> None:
         """Recursively split text into chunks."""
